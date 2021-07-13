@@ -1,0 +1,2 @@
+org/tensorflow/lite/examples/styletransfer/BuildConfig.java
+ org.tensorflow.lite.examples.styletransfer.BuildConfig
