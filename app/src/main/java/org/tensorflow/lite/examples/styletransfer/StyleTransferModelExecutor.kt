@@ -112,7 +112,7 @@ class StyleTransferModelExecutor(
       Log.d(TAG, "Style apply Time to run: $styleTransferTime")
 
       postProcessTime = SystemClock.uptimeMillis()
-      var styledImage =
+      val styledImage =
         ImageUtils.convertArrayToBitmap(outputImage, CONTENT_IMAGE_SIZE, CONTENT_IMAGE_SIZE)
       postProcessTime = SystemClock.uptimeMillis() - postProcessTime
 
@@ -142,7 +142,7 @@ class StyleTransferModelExecutor(
       )
     }
   }
-
+//assets读取 tflite文件
   @Throws(IOException::class)
   private fun loadModelFile(context: Context, modelFile: String): MappedByteBuffer {
     val fileDescriptor = context.assets.openFd(modelFile)
@@ -154,7 +154,7 @@ class StyleTransferModelExecutor(
     fileDescriptor.close()
     return retFile
   }
-
+// 调用loadModelFile，返回interpreter
   @Throws(IOException::class)
   private fun getInterpreter(
     context: Context,
