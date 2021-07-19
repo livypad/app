@@ -19,15 +19,18 @@ package org.tensorflow.lite.examples.styletransfer
 import android.Manifest
 import android.app.Activity
 import android.content.ContentResolver
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.hardware.camera2.CameraCharacteristics
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.FileUtils
 import android.os.Process
+
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
@@ -35,7 +38,6 @@ import android.view.animation.AnimationUtils
 import android.view.animation.BounceInterpolator
 import android.webkit.MimeTypeMap
 import android.widget.*
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
@@ -53,6 +55,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.Charset
 import java.security.MessageDigest
+import java.time.LocalDateTime
 import java.util.concurrent.Executors
 import kotlin.random.Random
 
@@ -84,6 +87,7 @@ class MainActivity :
     private lateinit var styleImageView: ImageView
     private lateinit var rerunButton: Button
     private lateinit var captureButton: ImageButton
+//    private lateinit var shareButton: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var horizontalScrollView: HorizontalScrollView
 
@@ -110,6 +114,7 @@ class MainActivity :
         originalImageView = findViewById(R.id.original_imageview)
         styleImageView = findViewById(R.id.style_imageview)
         captureButton = findViewById(R.id.capture_button)
+//        shareButton=findViewById(R.id.share_button)
         progressBar = findViewById(R.id.progress_circular)
         horizontalScrollView = findViewById(R.id.horizontal_scroll_view)
         val useGpuSwitch: Switch = findViewById(R.id.switch_use_gpu)
@@ -131,6 +136,10 @@ class MainActivity :
             this,
             Observer { resultImage ->
                 if (resultImage != null) {
+                    val dt = LocalDateTime.now().toString()// 当前日期和时间
+                    writeLog(dt,resultImage)
+                    saveToPngToAlbum(resultImage.styledImage)
+                    saveToPngToAPP(resultImage.styledImage,dt)
                     updateUIWithResults(resultImage)
                 }
             }
@@ -177,12 +186,53 @@ class MainActivity :
 
         Log.d(TAG, "finished onCreate!!")
     }
+    private fun saveToPngToAlbum(pic:Bitmap) {
+        val new_path:String= (System.currentTimeMillis()/1000L).toString()+"x.png"
+        val resolver = applicationContext.contentResolver
+        val imageCollection = MediaStore.Images.Media.getContentUri(
+            MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
+        val newimg = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, new_path)
+        }
+        val newUri = resolver
+            .insert(imageCollection, newimg)
+        if(newUri!=null){
+            resolver.openOutputStream(newUri!!).use { stream ->
+                pic.compress(Bitmap.CompressFormat.PNG,90,stream)
+            }
+        }
+    }
+    private fun writeLog(time:String,result: ModelExecutionResult){
+        val logName="model_log.txt"
+        val appSpecificExternalDir = File(applicationContext.getExternalFilesDir(null), logName)
+        appSpecificExternalDir.appendText(time+"\n")
+        appSpecificExternalDir.appendText(result.executionLog+'\n')
+    }
+    private fun saveToPngToAPP(pic:Bitmap,time:String){
+        val dir=getAppSpecificAlbumStorageDir(applicationContext,"album")
+        if(dir!=null){
+            val file = File(dir,time+".png")
+            file?.outputStream()?.use{ stream ->
+                pic.compress(Bitmap.CompressFormat.PNG,90,stream)
+            }
+        }
+    }
+    fun getAppSpecificAlbumStorageDir(context: Context, albumName: String): File? {
+        val file = File(context.getExternalFilesDir(
+            Environment.DIRECTORY_PICTURES), albumName)
+        if (!file?.mkdirs()) {
+            Log.e(TAG, "Directory not created")
+        }
+        return file
+    }
     private fun animateCameraButton() {
         val animation = AnimationUtils.loadAnimation(this, R.anim.scale_anim)
         animation.interpolator = BounceInterpolator()
         captureButton.animation = animation
         captureButton.animation.start()
+//        shareButton.animation = animation
+//        shareButton.animation.start()
     }
 
     private fun setImageView(imageView: ImageView, image: Bitmap) {
@@ -216,6 +266,7 @@ class MainActivity :
         isRunningModel = !enable
         rerunButton.isEnabled = enable
         captureButton.isEnabled = enable
+//        shareButton.isEnabled =enable
     }
 
     //    fun getPath(uri: Uri?): String? {
@@ -289,6 +340,10 @@ class MainActivity :
 //            cameraFragment.takePicture()
             selectImage()
         }
+//        shareButton.setOnClickListener {
+//            it.clearAnimation()
+//
+//        }
 
         findViewById<ImageButton>(R.id.toggle_button).setOnClickListener {
             lensFacing = if (lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
