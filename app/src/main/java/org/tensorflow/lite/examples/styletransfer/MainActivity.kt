@@ -87,10 +87,10 @@ class MainActivity :
     private lateinit var styleImageView: ImageView
     private lateinit var rerunButton: Button
     private lateinit var captureButton: ImageButton
-//    private lateinit var shareButton: ImageButton
+    private lateinit var shareButton: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var horizontalScrollView: HorizontalScrollView
-
+    private var lastSavedFileUri: Uri? =null
     private var lastSavedFile = ""
     private var useGPU = false
     private lateinit var styleTransferModelExecutor: StyleTransferModelExecutor
@@ -114,7 +114,7 @@ class MainActivity :
         originalImageView = findViewById(R.id.original_imageview)
         styleImageView = findViewById(R.id.style_imageview)
         captureButton = findViewById(R.id.capture_button)
-//        shareButton=findViewById(R.id.share_button)
+        shareButton=findViewById(R.id.share_button)
         progressBar = findViewById(R.id.progress_circular)
         horizontalScrollView = findViewById(R.id.horizontal_scroll_view)
         val useGpuSwitch: Switch = findViewById(R.id.switch_use_gpu)
@@ -138,7 +138,7 @@ class MainActivity :
                 if (resultImage != null) {
                     val dt = LocalDateTime.now().toString()// 当前日期和时间
                     writeLog(dt,resultImage)
-                    saveToPngToAlbum(resultImage.styledImage)
+                    saveToPngToAlbum(resultImage.styledImage,dt)
                     saveToPngToAPP(resultImage.styledImage,dt)
                     updateUIWithResults(resultImage)
                 }
@@ -186,8 +186,8 @@ class MainActivity :
 
         Log.d(TAG, "finished onCreate!!")
     }
-    private fun saveToPngToAlbum(pic:Bitmap) {
-        val new_path:String= (System.currentTimeMillis()/1000L).toString()+"x.png"
+    private fun saveToPngToAlbum(pic:Bitmap,name:String) {
+        val new_path:String= name+".png"
         val resolver = applicationContext.contentResolver
         val imageCollection = MediaStore.Images.Media.getContentUri(
             MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -198,6 +198,7 @@ class MainActivity :
         val newUri = resolver
             .insert(imageCollection, newimg)
         if(newUri!=null){
+            lastSavedFileUri = newUri
             resolver.openOutputStream(newUri!!).use { stream ->
                 pic.compress(Bitmap.CompressFormat.PNG,90,stream)
             }
@@ -226,13 +227,29 @@ class MainActivity :
         }
         return file
     }
+    fun shareLastSaved(){
+        if(lastSavedFileUri!=null){
+            sharePng(lastSavedFileUri!!)
+        }else{
+            Log.e(TAG, "haven't exist")
+        }
+    }
+    fun sharePng(pngUri:Uri){
+        val shareIntent: Intent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_STREAM, pngUri)
+            type = "image/png"
+        }
+        startActivity(Intent.createChooser(shareIntent,"Share images to.."))
+    }
+
     private fun animateCameraButton() {
         val animation = AnimationUtils.loadAnimation(this, R.anim.scale_anim)
         animation.interpolator = BounceInterpolator()
         captureButton.animation = animation
         captureButton.animation.start()
-//        shareButton.animation = animation
-//        shareButton.animation.start()
+        shareButton.animation = animation
+        shareButton.animation.start()
     }
 
     private fun setImageView(imageView: ImageView, image: Bitmap) {
@@ -266,7 +283,7 @@ class MainActivity :
         isRunningModel = !enable
         rerunButton.isEnabled = enable
         captureButton.isEnabled = enable
-//        shareButton.isEnabled =enable
+        shareButton.isEnabled =enable
     }
 
     //    fun getPath(uri: Uri?): String? {
@@ -340,10 +357,10 @@ class MainActivity :
 //            cameraFragment.takePicture()
             selectImage()
         }
-//        shareButton.setOnClickListener {
-//            it.clearAnimation()
-//
-//        }
+        shareButton.setOnClickListener {
+            it.clearAnimation()
+            shareLastSaved()
+        }
 
         findViewById<ImageButton>(R.id.toggle_button).setOnClickListener {
             lensFacing = if (lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
